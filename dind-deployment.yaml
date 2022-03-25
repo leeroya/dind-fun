@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dind-deployment
+  labels:
+    app: dind
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dind
+  template:
+    metadata:
+      labels:
+        app: dind
+    spec:
+      containers:
+        - name: dind
+          image: "docker:dind"
+          imagePullPolicy: Always
+          # securityContext:
+          #   allowPrivilegeEscalation: true
+          #   privileged: true
