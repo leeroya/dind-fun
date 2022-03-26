@@ -13,7 +13,13 @@
 	"settings": {},
 	
 	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [],
+	"extensions": [
+		"streetsidesoftware.code-spell-checker",
+		"ms-vscode-remote.remote-containers",
+		"redhat.vscode-yaml",
+		"eamodio.gitlens",
+		"mhutchie.git-graph"
+	],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],

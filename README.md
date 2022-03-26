@@ -8,5 +8,18 @@ The intension for this repository is to try work through the ability to run cont
 
 using the folder podman
 
-"--device=/dev/fuse"
-  this allows the use of the network devices
+Normally you need to run:
+
+```CMD
+--privileged
+```
+
+This is an issue as the requirment is to run containers as you would in a production setting, and in production it is not avised to run a container in privileged mode.
+
+These are the settings that are required to get this to work:
+
+```CMD
+"runArgs": [ "--cap-add=sys_admin", "--security-opt", "seccomp=unconfined", "--device=/dev/fuse"],
+```
+
+Lets break down each 
