@@ -12,8 +12,8 @@ RUN useradd podman; \
   echo -e "podman:1:999\npodman:1001:64535" > /etc/subuid; \
   echo -e "podman:1:999\npodman:1001:64535" > /etc/subgid;
 
-ADD https://raw.githubusercontent.com/containers/podman/main/contrib/podmanimage/stable/containers.conf /etc/containers/containers.conf
-ADD https://raw.githubusercontent.com/containers/podman/main/contrib/podmanimage/stable/podman-containers.conf /home/podman/.config/containers/containers.conf
+ADD podman/containers/containers.conf /etc/containers/containers.conf
+ADD podman/containers/podman-containers.conf /home/podman/.config/containers/containers.conf
 
 RUN mkdir -p /home/podman/.local/share/containers; chown podman:podman -R /home/podman
 
