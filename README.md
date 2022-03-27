@@ -34,7 +34,7 @@ As before there is a possibility that we can use the following argument when run
 
 This can be placed in the ```.devcontainer/devcontainer.json``` as a ```runArgs``` parameter.
 
-```CMD
+```JSON
 "runArgs": [ "--privileged" ],
 ```
 
@@ -45,7 +45,7 @@ Having said that, what we can do is turn specific features on or provide specifi
 
 In the ```.devcontainer/devcontainer.json``` lets replace the current arguments with these:
 
-```CMD
+```JSON
 "runArgs": [ "--cap-add=sys_admin", "--security-opt", "seccomp=unconfined", "--device=/dev/fuse"],
 ```
 
@@ -76,3 +76,141 @@ This option tells Podman on the host to add **/dev/fuse** to the container so th
 
 Also need to disable seccomp, since Docker has a slightly stricter seccomp policy than Podman.
 You could just use a Podman security policy by **using--seccomp=/usr/share/containers/seccomp.json**
+
+### Deployment
+
+Now that we have this working locally, it is now needed to deploy it to a cluster. Some good documentaton to read is [Kubernetes security context setting](https://kubernetes.io/docs/tasks/configure-pod-container/;security-context/)
+
+[Configuring Container Capabilities with Kubernetes](https://www.weave.works/blog/container-capabilities-kubernetes/)
+
+```YAML
+apiVersion: v1
+kind: Pod
+metadata:
+ name: mypod
+spec:
+ containers:
+   - name: myshell
+     image: "ubuntu:14.04"
+     command:
+       - /bin/sleep
+       - "300"
+     securityContext:
+       capabilities:
+         add:
+           - SYS_ADMIN
+```
+
+Here is an example of bind the userid at the same time:
+
+```yaml
+securityContext:
+  privileged: false
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    add:
+      - SYS_ADMIN
+```
+
+
+Now having a look for a solution for the device fuse so that we have the possiblity for networking, as a developer will want to perform port binding when running a container.
+based on [](https://github.com/kubernetes/kubernetes/issues/7890)
+
+```YAML
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smarter-device-manager
+  namespace: device-manager
+data:
+  conf.yaml: |
+    - devicematch: ^fuse$
+      nummaxdevices: 20
+```
+
+```YAML
+# Pod spec: 
+          resources:
+            limits:
+              smarter-devices/fuse: 1
+              memory: 512Mi
+            requests:
+              smarter-devices/fuse: 1
+              cpu: 10m
+              memory: 50Mi
+```
+
+Or as a daemonset
+
+
+```yaml
+# https://gitlab.com/arm-research/smarter/smarter-device-manager/-/blob/master/smarter-device-manager-ds.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: smarter-device-manager
+  namespace: device-manager
+  labels:
+    name: smarter-device-manager
+    role: agent
+spec:
+  selector:
+    matchLabels:
+      name: smarter-device-manager
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: smarter-device-manager
+      annotations:
+        node.kubernetes.io/bootstrap-checkpoint: "true"
+    spec:
+      ## kubectl label node pike5 smarter-device-manager=enabled
+      # nodeSelector:
+      #   smarter-device-manager : enabled
+      priorityClassName: "system-node-critical"
+      hostname: smarter-device-management
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: smarter-device-manager
+        image: registry.gitlab.com/arm-research/smarter/smarter-device-manager:v1.1.2
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          limits:
+            cpu: 100m
+            memory: 15Mi
+          requests:
+            cpu: 10m
+            memory: 15Mi
+        volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+          - name: dev-dir
+            mountPath: /dev
+          - name: sys-dir
+            mountPath: /sys
+          - name: config
+            mountPath: /root/config
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: dev-dir
+          hostPath:
+            path: /dev
+        - name: sys-dir
+          hostPath:
+            path: /sys
+        - name: config
+          configMap:
+            name: smarter-device-manager
+```
+
+As for [seccomp](https://kubernetes.io/docs/tutorials/security/seccomp/) we should not need to do anything as it appears that it is disabled already.
